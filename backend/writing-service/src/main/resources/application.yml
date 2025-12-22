@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: writing-service
+  
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/english_ai_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+server:
+  port: 8081
+
+# AI Service Configuration
+ai-service:
+  url: ${AI_SERVICE_URL:http://localhost:8083}
+
+# Logging
+logging:
+  level:
+    com.englishai.writing: DEBUG

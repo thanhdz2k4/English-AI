@@ -1,0 +1,9 @@
+Writing
+      1.1. Luyện tập viết câu (Nội dung phần này giúp người dùng có thể tự viết câu đúng cú pháp qua các chủ đề người dùng tự nhập)
+Người dùng nhập chủ đề hội thoại ví dụ như: đi chơi, daily life.
+AI sẽ tạo câu hỏi hoặc nói đầu tiên. Sau đó người dùng viết -> ai kiểm tra xem có đúng cấu trúc không nếu đúng thì chuyển sang câu tiếp theo. Nếu sai thì ai chỉ ra lỗi sai đó và người dùng viết lại
+Nếu trả lời đúng thì sẽ có phần improve cải thiện câu nói
+Một đoạn hội thoại này tầm 7-8 câu. Xong thì lưu lại câu người dùng trả lời sai về sau có thể kiểm tra lại.
+
+Ngôn ngữ backend java, frontend reactjs, database posgress dùng rainway để deploy mô hình microservices, kết hợp với data mesh coi data as a production.
+dùng rainway để deploy
