@@ -47,7 +47,7 @@ spring:
             max-age: 3600
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 # Actuator
 management:
