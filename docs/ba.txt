@@ -5,5 +5,5 @@ AI sẽ tạo câu hỏi hoặc nói đầu tiên. Sau đó người dùng viế
 Nếu trả lời đúng thì sẽ có phần improve cải thiện câu nói
 Một đoạn hội thoại này tầm 7-8 câu. Xong thì lưu lại câu người dùng trả lời sai về sau có thể kiểm tra lại.
 
-Ngôn ngữ backend java, frontend reactjs, database posgress dùng rainway để deploy mô hình microservices, kết hợp với data mesh coi data as a production.
-dùng rainway để deploy
+Ngôn ngữ backend nodejs, frontend reactjs, database posgress dùng vercel để deploy mô hình microservices, kết hợp với data mesh coi data as a production.
+
