@@ -63,3 +63,14 @@ export interface GoalsResponse {
   goal: GoalSettings;
   progress: GoalProgress;
 }
+
+export interface TtsRequest {
+  text: string;
+  voiceName?: string;
+  languageCode?: string;
+}
+
+export interface TtsResponse {
+  audio: string;
+  mimeType: string;
+}

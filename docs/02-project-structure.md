@@ -1,6 +1,6 @@
-# Cấu Trúc Dự Án - English AI
+# Project Structure - English AI
 
-## Cấu Trúc Thư Mục
+## Top Level Layout
 
 ```
 english-ai/
@@ -12,6 +12,9 @@ english-ai/
 |   |   |   |-- me/
 |   |   |   `-- register/
 |   |   |-- goals/
+|   |   |   `-- route.ts
+|   |   |-- tts/
+|   |   |   `-- route.ts
 |   |   `-- writing/
 |   |       |-- check/
 |   |       |-- history/
@@ -33,6 +36,7 @@ english-ai/
 |-- services/
 |   |-- aiService.ts
 |   |-- goalService.ts
+|   |-- ttsService.ts
 |   `-- writingService.ts
 |-- types/
 |-- prisma/
@@ -48,6 +52,7 @@ english-ai/
 
 ## App Routes
 
+- `/` - Landing page
 - `/writing` - Writing practice
 - `/history` - Mistakes history
 - `/practice` - Practice mistakes by topic
@@ -96,7 +101,7 @@ model UserGoal {
 
 model WritingSession {
   id        String   @id @default(cuid())
-  topic     String                    // Chủ đề hội thoại
+  topic     String
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   messages  Message[]
@@ -110,11 +115,11 @@ model Message {
   id        String   @id @default(cuid())
   sessionId String
   session   WritingSession @relation(fields: [sessionId], references: [id])
-  role      Role                      // AI hoặc USER
+  role      Role
   content   String
-  isCorrect Boolean?                  // null nếu là AI message
-  improved  String?                   // Câu cải thiện (nếu đúng)
-  order     Int                       // Thứ tự trong hội thoại
+  isCorrect Boolean?
+  improved  String?
+  order     Int
   createdAt DateTime @default(now())
 }
 
@@ -122,9 +127,9 @@ model Mistake {
   id          String   @id @default(cuid())
   sessionId   String
   session     WritingSession @relation(fields: [sessionId], references: [id])
-  original    String                  // Câu gốc của user
-  correction  String                  // Câu đã sửa
-  explanation String                  // Giải thích lỗi
+  original    String
+  correction  String
+  explanation String
   reviewed    Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
@@ -146,12 +151,12 @@ enum SessionStatus {
 
 ### Writing Feature
 
-| Method | Endpoint | Mô Tả |
-|--------|----------|-------|
-| `POST` | `/api/writing/start` | Bắt đầu session mới với topic |
-| `POST` | `/api/writing/check` | Kiểm tra câu trả lời của user |
-| `GET` | `/api/writing/history` | Lấy danh sách các câu sai để ôn tập |
-| `GET` | `/api/writing/sessions` | Lấy danh sách các session đã hoàn thành |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/writing/start` | Start a new session with a topic |
+| `POST` | `/api/writing/check` | Check a user response and return feedback |
+| `GET` | `/api/writing/history` | List mistakes for practice |
+| `GET` | `/api/writing/sessions` | List completed sessions |
 
 ### Auth
 
@@ -168,6 +173,12 @@ enum SessionStatus {
 |--------|----------|-------------|
 | `GET` | `/api/goals` | Get weekly goals and progress |
 | `POST` | `/api/goals` | Update weekly goals and reminders |
+
+### Text to Speech (TTS)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/tts` | Generate speech audio for AI responses |
 
 ### Request/Response Examples
 
@@ -192,14 +203,14 @@ enum SessionStatus {
   "userMessage": "I wake up at 7am"
 }
 
-// Response (Sai)
+// Response (incorrect)
 {
   "isCorrect": false,
-  "error": "Thiếu trợ động từ. Với thì quá khứ đơn, cần dùng 'woke up'.",
+  "error": "Use past tense for a past action.",
   "suggestion": "I woke up at 7am."
 }
 
-// Response (Đúng)
+// Response (correct)
 {
   "isCorrect": true,
   "aiMessage": "That's great! What did you have for breakfast?",
@@ -246,6 +257,17 @@ enum SessionStatus {
 }
 ```
 
+#### POST /api/tts
+```json
+// Request
+{ "text": "Hello! How are you today?" }
+
+// Response
+{
+  "audio": "BASE64_AUDIO_DATA",
+  "mimeType": "audio/wav"
+}
+```
 
 ---
 
@@ -267,6 +289,13 @@ VC_API_KEY="your_vc_api_key_here"
 VC_BASE_URL="https://vanchin.streamlake.ai/api/gateway/v1/endpoints"
 VC_MODEL="kat-coder-exp-72b-1010"
 
+# Gemini (TTS)
+GEMINI_API_KEY="your_gemini_api_key_here"
+GEMINI_MODEL="gemini-2.0-flash-exp"
+GEMINI_TTS_MODEL="gemini-2.0-flash-exp"
+GEMINI_TTS_LANGUAGE="en-US"
+GEMINI_TTS_VOICE=""
+
 # Vercel
 VERCEL_URL="..."
 
@@ -275,8 +304,6 @@ AUTH_COOKIE_NAME="english_ai_session"
 AUTH_SESSION_TTL_HOURS="168"
 AUTH_PASSWORD_ITERATIONS="100000"
 ```
-
-
 
 ---
 
@@ -298,26 +325,22 @@ AUTH_PASSWORD_ITERATIONS="100000"
 }
 ```
 
-
 ### Vercel Project Settings
 
 | Setting | Value |
 |---------|-------|
-| **Framework Preset** | Next.js |
-| **Build Command** | `prisma generate && next build` |
-| **Output Directory** | `.next` |
-| **Install Command** | `npm install` |
-| **Node.js Version** | 18.x hoặc 20.x |
+| Framework Preset | Next.js |
+| Build Command | `prisma generate && next build` |
+| Output Directory | `.next` |
+| Install Command | `npm install` |
+| Node.js Version | 18.x or 20.x |
 
 ### Environment Variables (Vercel Dashboard)
 
-> [!IMPORTANT]
-> Các biến môi trường cần được cấu hình trong Vercel Dashboard → Settings → Environment Variables
-
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DATABASE_URL` | Vercel Postgres connection string | ✅ |
-| `OPENAI_API_KEY` | OpenAI API key | ✅ |
+| `DATABASE_URL` | Vercel Postgres connection string | yes |
+| `OPENAI_API_KEY` | OpenAI API key | yes |
 | `OPENAI_BASE_URL` | OpenAI base URL | optional |
 | `OPENAI_MODEL` | OpenAI model name | optional |
 | `OPENAI_TIMEOUT_MS` | OpenAI request timeout in ms | optional |
@@ -325,16 +348,21 @@ AUTH_PASSWORD_ITERATIONS="100000"
 | `VC_API_KEY` | Streamlake/Vanchin API key (fallback) | optional |
 | `VC_BASE_URL` | Streamlake/Vanchin base URL | optional |
 | `VC_MODEL` | Streamlake/Vanchin model ID | optional |
+| `GEMINI_API_KEY` | Gemini API key for TTS | yes |
+| `GEMINI_MODEL` | Gemini model name | optional |
+| `GEMINI_TTS_MODEL` | Gemini TTS model name | optional |
+| `GEMINI_TTS_LANGUAGE` | TTS language code | optional |
+| `GEMINI_TTS_VOICE` | TTS voice name | optional |
 | `AUTH_COOKIE_NAME` | Cookie name for auth session | optional |
 | `AUTH_SESSION_TTL_HOURS` | Session lifetime in hours | optional |
 | `AUTH_PASSWORD_ITERATIONS` | PBKDF2 iterations for password hashing | optional |
 
 ### Vercel Postgres Setup
 
-1. Vào Vercel Dashboard → Storage → Create Database → Postgres
-2. Chọn region gần nhất (Singapore - `sin1`)
-3. Copy `DATABASE_URL` vào Environment Variables
-4. Chạy migration:
+1. Open Vercel Dashboard -> Storage -> Create Database -> Postgres.
+2. Choose the closest region (Singapore - `sin1`).
+3. Copy `DATABASE_URL` into Environment Variables.
+4. Run migrations:
    ```bash
    npx prisma migrate deploy
    ```
@@ -355,14 +383,6 @@ AUTH_PASSWORD_ITERATIONS="100000"
   }
 }
 ```
-
-### Lưu Ý Quan Trọng Khi Deploy
-
-> [!CAUTION]
-> - Không commit file `.env` lên Git
-> - Đảm bảo `prisma generate` chạy trước khi build
-> - API routes có giới hạn 10s (Hobby) hoặc 60s (Pro) execution time
-> - Vercel Postgres có giới hạn connections, sử dụng connection pooling
 
 ### Deployment Commands
 

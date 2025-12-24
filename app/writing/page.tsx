@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Message {
@@ -23,6 +23,10 @@ export default function WritingPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSpokenIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -146,6 +150,67 @@ export default function WritingPage() {
     }
   };
 
+  const stopAudio = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    audioRef.current = null;
+  }, []);
+
+  const speakText = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    setIsSpeaking(true);
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: trimmed }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error('Failed to generate speech');
+      }
+
+      const data = await response.json();
+      if (!data?.audio || !data?.mimeType) {
+        throw new Error('Invalid speech response');
+      }
+
+      stopAudio();
+      const audio = new Audio(
+        `data:${data.mimeType};base64,${data.audio}`
+      );
+      audioRef.current = audio;
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing speech:', error);
+    } finally {
+      setIsSpeaking(false);
+    }
+  }, [router, stopAudio]);
+
+  useEffect(() => {
+    if (!autoSpeak) return;
+    if (messages.length === 0) {
+      lastSpokenIndexRef.current = null;
+      return;
+    }
+
+    const lastIndex = messages.length - 1;
+    const lastMessage = messages[lastIndex];
+    if (lastMessage.role !== 'AI') return;
+    if (lastSpokenIndexRef.current === lastIndex) return;
+
+    lastSpokenIndexRef.current = lastIndex;
+    void speakText(lastMessage.content);
+  }, [autoSpeak, messages, speakText]);
+
   const resetSession = () => {
     setSessionId(null);
     setTopic('');
@@ -153,12 +218,15 @@ export default function WritingPage() {
     setUserInput('');
     setIsSessionStarted(false);
     setIsCompleted(false);
+    stopAudio();
+    lastSpokenIndexRef.current = null;
   };
 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
+      stopAudio();
       router.push('/login');
     }
   };
@@ -222,17 +290,33 @@ export default function WritingPage() {
         ) : (
           <div className="space-y-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                   <span className="text-sm text-gray-500 dark:text-gray-400">Topic:</span>
                   <span className="ml-2 font-semibold">{topic}</span>
                 </div>
-                <button
-                  onClick={resetSession}
-                  className="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                >
-                  New Topic
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={autoSpeak}
+                      onChange={(e) => setAutoSpeak(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    Auto speak AI
+                  </label>
+                  {isSpeaking && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Speaking...
+                    </span>
+                  )}
+                  <button
+                    onClick={resetSession}
+                    className="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    New Topic
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4 max-h-[500px] overflow-y-auto mb-4">
@@ -250,26 +334,37 @@ export default function WritingPage() {
                           : 'bg-green-100 dark:bg-green-900'
                       }`}
                     >
-                      <div className="font-semibold text-sm mb-1">
-                        {msg.role === 'AI' ? '🤖 AI Teacher' : '👤 You'}
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="font-semibold text-sm">
+                          {msg.role === 'AI' ? 'AI Teacher' : 'You'}
+                        </div>
+                        {msg.role === 'AI' && (
+                          <button
+                            onClick={() => speakText(msg.content)}
+                            className="px-2 py-1 text-xs rounded-md bg-white/70 hover:bg-white dark:bg-gray-700 dark:hover:bg-gray-600"
+                            type="button"
+                          >
+                            Listen
+                          </button>
+                        )}
                       </div>
                       <div>{msg.content}</div>
                       
                       {msg.isCorrect === false && (
                         <div className="mt-3 pt-3 border-t border-red-300 dark:border-red-700">
                           <div className="text-sm text-red-700 dark:text-red-300 mb-2">
-                            ❌ {msg.error}
+                            Error: {msg.error}
                           </div>
                           <div className="text-sm">
-                            <span className="font-semibold">✅ Correction:</span> {msg.suggestion}
+                            <span className="font-semibold">Correction:</span> {msg.suggestion}
                           </div>
                         </div>
                       )}
-                      
+
                       {msg.isCorrect === true && msg.improvement && (
                         <div className="mt-3 pt-3 border-t border-green-300 dark:border-green-700">
                           <div className="text-sm">
-                            <span className="font-semibold">💡 Better way:</span>
+                            <span className="font-semibold">Better way:</span>
                             <div className="mt-1 italic">{msg.improvement}</div>
                           </div>
                         </div>
@@ -281,7 +376,7 @@ export default function WritingPage() {
 
               {isCompleted ? (
                 <div className="text-center p-6 bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-lg">
-                  <h3 className="text-2xl font-bold mb-2">🎉 Congratulations!</h3>
+                  <h3 className="text-2xl font-bold mb-2">Congratulations!</h3>
                   <p className="mb-4">You've completed this writing session!</p>
                   <button
                     onClick={resetSession}
