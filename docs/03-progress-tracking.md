@@ -38,7 +38,7 @@
 
 - [x] Tạo Prisma client instance
 - [x] **POST /api/writing/start** - Bắt đầu session
-  - [x] Validate input (topic, userId)
+  - [x] Validate input (topic)
   - [x] Tạo session mới
   - [x] Gọi AI tạo câu hỏi đầu tiên
   - [x] Trả về response

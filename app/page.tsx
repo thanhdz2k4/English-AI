@@ -4,6 +4,20 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
       <main className="flex flex-col items-center gap-8 p-8 max-w-2xl">
+        <div className="w-full flex justify-end gap-3 text-sm">
+          <Link
+            href="/login"
+            className="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/register"
+            className="px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Create account
+          </Link>
+        </div>
         <h1 className="text-5xl font-bold text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           English AI
         </h1>

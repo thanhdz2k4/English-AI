@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Mistake {
   id: string;
@@ -12,18 +13,47 @@ interface Mistake {
 }
 
 export default function HistoryPage() {
-  const [userId] = useState('demo_user_123');
+  const router = useRouter();
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    const loadUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (!response.ok) {
+          router.push('/login');
+          return;
+        }
+        const data = await response.json();
+        const user = data.user;
+        setDisplayName(user?.name || user?.email || null);
+        await fetchHistory();
+      } catch (error) {
+        console.error('Error loading user:', error);
+        router.push('/login');
+        return;
+      } finally {
+        setIsAuthReady(true);
+      }
+    };
+
+    loadUser();
+  }, [router]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/writing/history?userId=${userId}`);
+      const response = await fetch('/api/writing/history');
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error('Failed to load history');
+      }
       const data = await response.json();
       setMistakes(data.mistakes || []);
     } catch (error) {
@@ -32,6 +62,24 @@ export default function HistoryPage() {
       setIsLoading(false);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      router.push('/login');
+    }
+  };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4">
+        <div className="max-w-4xl mx-auto text-center py-12">
+          <div className="text-xl">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4">
@@ -49,6 +97,19 @@ export default function HistoryPage() {
           <p className="text-gray-600 dark:text-gray-300">
             Review your past mistakes to improve
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            {displayName && (
+              <span className="text-gray-500 dark:text-gray-400">
+                Signed in as {displayName}
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {isLoading ? (

@@ -1,6 +1,5 @@
 export interface StartSessionRequest {
   topic: string;
-  userId: string;
 }
 
 export interface StartSessionResponse {

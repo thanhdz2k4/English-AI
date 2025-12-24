@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Message {
   role: 'AI' | 'USER';
@@ -12,7 +13,7 @@ interface Message {
 }
 
 export default function WritingPage() {
-  const [userId] = useState('demo_user_123'); // For demo purposes
+  const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [topic, setTopic] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,6 +21,31 @@ export default function WritingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSessionStarted, setIsSessionStarted] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (!response.ok) {
+          router.push('/login');
+          return;
+        }
+        const data = await response.json();
+        const user = data.user;
+        setDisplayName(user?.name || user?.email || null);
+      } catch (error) {
+        console.error('Error loading user:', error);
+        router.push('/login');
+        return;
+      } finally {
+        setIsAuthReady(true);
+      }
+    };
+
+    loadUser();
+  }, [router]);
 
   const startSession = async () => {
     if (!topic.trim()) {
@@ -32,8 +58,16 @@ export default function WritingPage() {
       const response = await fetch('/api/writing/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, userId }),
+        body: JSON.stringify({ topic }),
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error('Failed to start session');
+      }
 
       const data = await response.json();
       setSessionId(data.sessionId);
@@ -63,6 +97,14 @@ export default function WritingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, userMessage }),
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error('Failed to send message');
+      }
 
       const data = await response.json();
 
@@ -113,6 +155,24 @@ export default function WritingPage() {
     setIsCompleted(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      router.push('/login');
+    }
+  };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4">
+        <div className="max-w-4xl mx-auto text-center py-12">
+          <div className="text-xl">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="max-w-4xl mx-auto">
@@ -123,6 +183,19 @@ export default function WritingPage() {
           <p className="text-gray-600 dark:text-gray-300">
             Practice your English writing with AI feedback
           </p>
+          <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+            {displayName && (
+              <span className="text-gray-500 dark:text-gray-400">
+                Signed in as {displayName}
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {!isSessionStarted ? (

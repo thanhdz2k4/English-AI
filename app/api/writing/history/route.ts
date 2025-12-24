@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserMistakes } from '@/services/writingService';
 import type { HistoryResponse } from '@/types';
+import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
+    const user = await getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    const mistakes = await getUserMistakes(userId, false);
+    const mistakes = await getUserMistakes(user.id, false);
 
     const response: HistoryResponse = {
       mistakes: mistakes.map((m) => ({

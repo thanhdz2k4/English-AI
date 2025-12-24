@@ -13,11 +13,21 @@ import {
 } from '@/services/aiService';
 import { Role } from '@prisma/client';
 import type { CheckMessageRequest, CheckMessageResponse } from '@/types';
+import { getUserFromRequest } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 const MAX_MESSAGES = 8;
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body: CheckMessageRequest = await request.json();
     const { sessionId, userMessage } = body;
 
@@ -28,12 +38,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const session = await prisma.writingSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true, topic: true },
+    });
+
+    if (!session || session.userId !== user.id) {
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
     // Get current message count
     const currentCount = await getMessageCount(sessionId);
     const userOrder = currentCount + 1;
 
     // Check grammar
     const grammarCheck = await checkGrammar(userMessage);
+
+    if (grammarCheck.fallback) {
+      await addMessage(
+        sessionId,
+        Role.USER,
+        userMessage,
+        userOrder,
+        true
+      );
+
+      const newCount = userOrder;
+      const isCompleted = newCount >= MAX_MESSAGES;
+
+      if (isCompleted) {
+        await completeSession(sessionId);
+
+        const response: CheckMessageResponse = {
+          isCorrect: true,
+          messageCount: newCount,
+          isCompleted: true,
+        };
+
+        return NextResponse.json(response);
+      }
+
+      const fallbackTopic = session.topic || 'this topic';
+      const aiMessage = `Thanks! Can you share more about ${fallbackTopic}?`;
+      await addMessage(sessionId, Role.AI, aiMessage, newCount + 1);
+
+      const response: CheckMessageResponse = {
+        isCorrect: true,
+        aiMessage,
+        messageCount: newCount + 1,
+        isCompleted: false,
+      };
+
+      return NextResponse.json(response);
+    }
 
     if (!grammarCheck.isCorrect) {
       // Save user message as incorrect
@@ -63,8 +123,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Message is correct
-    // Generate improvement suggestion
-    const improvement = await generateImprovement(userMessage);
+    const isCompleted = userOrder >= MAX_MESSAGES;
+
+    const messages = await getSessionMessages(sessionId);
+    const messageContents = messages.map(
+      (m) => `${m.role}: ${m.content}`
+    );
+    messageContents.push(`USER: ${userMessage}`);
+
+    const improvementPromise = generateImprovement(userMessage);
+    const nextQuestionPromise = isCompleted
+      ? null
+      : generateNextQuestion(session.topic, messageContents);
+
+    const improvement = await improvementPromise;
 
     // Save user message
     await addMessage(
@@ -76,46 +148,29 @@ export async function POST(request: NextRequest) {
       improvement
     );
 
-    // Check if we've reached the message limit
-    const newCount = await getMessageCount(sessionId);
-    const isCompleted = newCount >= MAX_MESSAGES;
-
     if (isCompleted) {
       await completeSession(sessionId);
 
       const response: CheckMessageResponse = {
         isCorrect: true,
         improvement,
-        messageCount: newCount,
+        messageCount: userOrder,
         isCompleted: true,
       };
 
       return NextResponse.json(response);
     }
 
-    // Generate next AI question
-    const messages = await getSessionMessages(sessionId);
-    const messageContents = messages.map(
-      (m) => `${m.role}: ${m.content}`
-    );
-
-    const session = await prisma.writingSession.findUnique({
-      where: { id: sessionId },
-    });
-
-    const aiMessage = await generateNextQuestion(
-      session?.topic || '',
-      messageContents
-    );
+    const aiMessage = await nextQuestionPromise!;
 
     // Save AI message
-    await addMessage(sessionId, Role.AI, aiMessage, newCount + 1);
+    await addMessage(sessionId, Role.AI, aiMessage, userOrder + 1);
 
     const response: CheckMessageResponse = {
       isCorrect: true,
       aiMessage,
       improvement,
-      messageCount: newCount + 1,
+      messageCount: userOrder + 1,
       isCompleted: false,
     };
 
@@ -128,6 +183,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Import prisma for the session lookup
-import { prisma } from '@/lib/prisma';

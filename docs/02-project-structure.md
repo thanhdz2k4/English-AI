@@ -70,9 +70,21 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  passwordHash String?
   sessions  WritingSession[]
+  authSessions AuthSession[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
 }
 
 model WritingSession {
@@ -134,12 +146,21 @@ enum SessionStatus {
 | `GET` | `/api/writing/history` | Lấy danh sách các câu sai để ôn tập |
 | `GET` | `/api/writing/sessions` | Lấy danh sách các session đã hoàn thành |
 
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/register` | Create account and set session cookie |
+| `POST` | `/api/auth/login` | Sign in and set session cookie |
+| `POST` | `/api/auth/logout` | Revoke session and clear cookie |
+| `GET` | `/api/auth/me` | Return current session user |
+
 ### Request/Response Examples
 
 #### POST /api/writing/start
 ```json
 // Request
-{ "topic": "daily life", "userId": "user_123" }
+{ "topic": "daily life" }
 
 // Response
 {
@@ -184,13 +205,23 @@ DATABASE_URL="postgresql://..."
 
 # OpenAI
 OPENAI_API_KEY="sk-..."
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL="gpt-4o-mini"
+OPENAI_TIMEOUT_MS="5000"
+OPENAI_MAX_RETRIES="1"
+
+# Streamlake / Vanchin (optional)
+VC_API_KEY="your_vc_api_key_here"
+VC_BASE_URL="https://vanchin.streamlake.ai/api/gateway/v1/endpoints"
+VC_MODEL="kat-coder-exp-72b-1010"
 
 # Vercel
 VERCEL_URL="..."
 
-# Auth (optional)
-NEXTAUTH_SECRET="..."
-NEXTAUTH_URL="..."
+# Auth
+AUTH_COOKIE_NAME="english_ai_session"
+AUTH_SESSION_TTL_HOURS="168"
+AUTH_PASSWORD_ITERATIONS="100000"
 ```
 
 ---
@@ -232,8 +263,16 @@ NEXTAUTH_URL="..."
 |----------|-------------|----------|
 | `DATABASE_URL` | Vercel Postgres connection string | ✅ |
 | `OPENAI_API_KEY` | OpenAI API key | ✅ |
-| `NEXTAUTH_SECRET` | Random secret for NextAuth | ⬜ |
-| `NEXTAUTH_URL` | Production URL | ⬜ |
+| `OPENAI_BASE_URL` | OpenAI base URL | optional |
+| `OPENAI_MODEL` | OpenAI model name | optional |
+| `OPENAI_TIMEOUT_MS` | OpenAI request timeout in ms | optional |
+| `OPENAI_MAX_RETRIES` | OpenAI request retries | optional |
+| `VC_API_KEY` | Streamlake/Vanchin API key (fallback) | optional |
+| `VC_BASE_URL` | Streamlake/Vanchin base URL | optional |
+| `VC_MODEL` | Streamlake/Vanchin model ID | optional |
+| `AUTH_COOKIE_NAME` | Cookie name for auth session | optional |
+| `AUTH_SESSION_TTL_HOURS` | Session lifetime in hours | optional |
+| `AUTH_PASSWORD_ITERATIONS` | PBKDF2 iterations for password hashing | optional |
 
 ### Vercel Postgres Setup
 
