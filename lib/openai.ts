@@ -7,8 +7,10 @@ export function getOpenAI(): OpenAI {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('Missing OPENAI_API_KEY environment variable');
     }
+    const baseURL = process.env.OPENAI_BASE_URL;
     openaiInstance = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      ...(baseURL ? { baseURL } : {}),
     });
   }
   return openaiInstance;

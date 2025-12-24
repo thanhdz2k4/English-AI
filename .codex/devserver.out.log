@@ -1,0 +1,15 @@
+
+> english-ai@0.1.0 dev
+> next dev --port 3200
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3200
+- Network:       http://192.168.10.40:3200
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 782ms
+ POST /api/writing/start 200 in 19.4s (compile: 176ms, render: 19.3s)
+ POST /api/writing/check 200 in 2.7min (compile: 58ms, render: 2.7min)
+ GET /api/writing/history?userId=user_123 200 in 1333ms (compile: 159ms, render: 1174ms)
+ GET /api/writing/sessions?userId=user_123 200 in 1300ms (compile: 128ms, render: 1172ms)

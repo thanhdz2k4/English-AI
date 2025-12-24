@@ -1,9 +1,11 @@
 import { getOpenAI } from '@/lib/openai';
 
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
 export async function generateInitialQuestion(topic: string): Promise<string> {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: OPENAI_MODEL,
     messages: [
       {
         role: "system",
@@ -27,7 +29,7 @@ export async function checkGrammar(sentence: string): Promise<{
 }> {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: OPENAI_MODEL,
     messages: [
       {
         role: "system",
@@ -55,7 +57,7 @@ Be strict about grammar but accept minor stylistic variations.`
 export async function generateImprovement(sentence: string): Promise<string> {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: OPENAI_MODEL,
     messages: [
       {
         role: "system",
@@ -75,7 +77,7 @@ export async function generateImprovement(sentence: string): Promise<string> {
 export async function generateNextQuestion(topic: string, previousMessages: string[]): Promise<string> {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: OPENAI_MODEL,
     messages: [
       {
         role: "system",
