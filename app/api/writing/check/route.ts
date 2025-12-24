@@ -16,7 +16,7 @@ import type { CheckMessageRequest, CheckMessageResponse } from '@/types';
 import { getUserFromRequest } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const MAX_MESSAGES = 8;
+const MAX_MESSAGES = 30000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,33 +96,43 @@ export async function POST(request: NextRequest) {
     }
 
     if (!grammarCheck.isCorrect) {
-      // Save user message as incorrect
-      await addMessage(
-        sessionId,
-        Role.USER,
-        userMessage,
-        userOrder,
-        false
-      );
+      // Check if correction is same as original - means AI made a mistake
+      const cleanOriginal = userMessage.trim().toLowerCase();
+      const cleanCorrection = (grammarCheck.correction || '').trim().toLowerCase();
+      
+      if (cleanOriginal === cleanCorrection) {
+        // AI bắt nhầm - treat as correct
+        console.log('Grammar check false positive - correction same as original');
+        grammarCheck.isCorrect = true;
+      } else {
+        // Real error - save it
+        await addMessage(
+          sessionId,
+          Role.USER,
+          userMessage,
+          userOrder,
+          false
+        );
 
-      // Save mistake
-      await addMistake(
-        sessionId,
-        userMessage,
-        grammarCheck.correction || '',
-        grammarCheck.error || 'Grammar error'
-      );
+        // Save mistake
+        await addMistake(
+          sessionId,
+          userMessage,
+          grammarCheck.correction || '',
+          grammarCheck.error || 'Grammar error'
+        );
 
-      const response: CheckMessageResponse = {
-        isCorrect: false,
-        error: grammarCheck.error,
-        suggestion: grammarCheck.correction,
-      };
+        const response: CheckMessageResponse = {
+          isCorrect: false,
+          error: grammarCheck.error,
+          suggestion: grammarCheck.correction,
+        };
 
-      return NextResponse.json(response);
+        return NextResponse.json(response);
+      }
     }
 
-    // Message is correct
+    // Message is correct (or false positive)
     const isCompleted = userOrder >= MAX_MESSAGES;
 
     const messages = await getSessionMessages(sessionId);

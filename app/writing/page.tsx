@@ -434,23 +434,33 @@ export default function WritingPage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Type your response in English..."
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                    disabled={isLoading}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={isLoading || !userInput.trim()}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
-                  >
-                    {isLoading ? '...' : 'Send'}
-                  </button>
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 italic">
+                    💡 Tip: Write 2-3 sentences to practice more! Share details, examples, or your feelings.
+                  </div>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      placeholder="Type your response in English... (Try to write at least 2-3 sentences)"
+                      className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                      rows={3}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      disabled={isLoading}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={isLoading || !userInput.trim()}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors self-end"
+                    >
+                      {isLoading ? '...' : 'Send'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
