@@ -34,6 +34,13 @@ export default function Home() {
           </Link>
 
           <Link
+            href="/fill-blank"
+            className="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-center transition-colors"
+          >
+            Fill in the Blank Exercise
+          </Link>
+
+          <Link
             href="/practice"
             className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-center transition-colors"
           >

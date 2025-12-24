@@ -385,3 +385,162 @@ Topic: ${topic}`
     return "What else would you like to share?";
   }
 }
+
+export async function generateFillInBlank(topic: string): Promise<{
+  sentence: string;
+  answer: string;
+  blankType: 'verb' | 'preposition' | 'phrase';
+}> {
+  try {
+    const openai = getOpenAI();
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `You are an English teacher creating CHALLENGING fill-in-the-blank exercises about "${topic}".
+
+DIFFICULTY LEVEL: INTERMEDIATE TO ADVANCED
+
+Create diverse, complex sentences with ONE blank. Focus on:
+
+1. Advanced Verbs & Phrasal Verbs (40%):
+   - Phrasal verbs: "I need to ___ the deadline" (meet)
+   - Perfect tenses: "I ___ this book three times" (have read)
+   - Conditional: "If I had known, I ___ earlier" (would have come)
+   - Passive: "The project ___ by the team yesterday" (was completed)
+
+2. Complex Prepositions & Particles (30%):
+   - Dependent prepositions: "She succeeded ___ her goals" (in achieving)
+   - Phrasal verb particles: "Don't give ___ your dreams" (up on)
+   - Fixed expressions: "I'm looking forward ___ you" (to meeting)
+
+3. Advanced Phrases & Collocations (30%):
+   - Idioms: "He burned the ___ working late" (midnight oil)
+   - Collocations: "Make a ___ impression" (lasting)
+   - Fixed phrases: "I took his criticism with a grain of ___" (salt)
+
+REQUIREMENTS:
+✓ 12-20 words per sentence (longer and more complex)
+✓ Use varied vocabulary and structures
+✓ Mix tenses (past perfect, conditionals, etc.)
+✓ Include context that requires thinking
+✓ NEVER repeat common patterns like "I listen to..."
+✓ Use "___" for blank (3 underscores)
+✓ Make it CHALLENGING - no obvious answers
+
+FORBIDDEN (too easy/repetitive):
+✗ "I ___ music" → too simple
+✗ "I go to school ___ bus" → too common
+✗ Basic present tense sentences
+✗ Repeated sentence structures
+
+Response format (JSON only):
+{
+  "sentence": "Complex sentence with ___",
+  "answer": "challenging word/phrase",
+  "blankType": "verb" or "preposition" or "phrase"
+}
+
+Examples of GOOD (challenging) exercises:
+{"sentence": "Despite the difficulties, she managed to ___ her composure during the presentation", "answer": "maintain", "blankType": "verb"}
+{"sentence": "The success of the project depends ___ the team's ability to collaborate effectively", "answer": "on", "blankType": "preposition"}
+{"sentence": "He's been working on this assignment ___ but still hasn't finished it", "answer": "for hours", "blankType": "phrase"}
+
+Topic: ${topic}
+ASCII only.`
+        },
+        {
+          role: "user",
+          content: `Create a CHALLENGING and UNIQUE fill-in-the-blank exercise about: ${topic}`
+        }
+      ],
+      temperature: 0.9,
+      response_format: { type: "json_object" }
+    });
+
+    const parsed = JSON.parse(
+      completion.choices[0]?.message?.content || '{"sentence": "I ___ music", "answer": "listen to", "blankType": "verb"}'
+    );
+
+    return {
+      sentence: sanitizeEnglish(parsed.sentence, 'I ___ this book three times already'),
+      answer: sanitizeEnglish(parsed.answer, 'have read'),
+      blankType: parsed.blankType || 'verb',
+    };
+  } catch (error) {
+    console.error('Error generating fill-in-blank:', error);
+    return {
+      sentence: 'Despite the challenges, I ___ to achieve my goals',
+      answer: 'managed',
+      blankType: 'verb',
+    };
+  }
+}
+
+export async function checkFillInBlank(userAnswer: string, correctAnswer: string): Promise<{
+  isCorrect: boolean;
+  feedback?: string;
+}> {
+  const cleanUser = userAnswer.trim().toLowerCase();
+  const cleanCorrect = correctAnswer.trim().toLowerCase();
+
+  // Exact match
+  if (cleanUser === cleanCorrect) {
+    return { isCorrect: true };
+  }
+
+  // Check if answer is acceptable alternative
+  try {
+    const openai = getOpenAI();
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `You are an English teacher checking a fill-in-the-blank answer.
+
+Expected answer: "${correctAnswer}"
+Student answer: "${userAnswer}"
+
+Task: Determine if the student's answer is acceptable.
+
+Accept if:
+✓ Same meaning: "listen to" vs "hear" for music context
+✓ Different form but correct: "listening to" vs "listen to"
+✓ Synonym that fits context
+
+Reject if:
+✗ Wrong meaning or grammar
+✗ Doesn't fit the sentence
+
+Response (JSON only):
+{"isCorrect": true or false, "feedback": "brief explanation if wrong"}
+
+ASCII only.`
+        },
+        {
+          role: "user",
+          content: `Expected: "${correctAnswer}", Student: "${userAnswer}"`
+        }
+      ],
+      temperature: 0.2,
+      response_format: { type: "json_object" }
+    });
+
+    const parsed = JSON.parse(
+      completion.choices[0]?.message?.content || '{"isCorrect": false, "feedback": "Try again"}'
+    );
+
+    return {
+      isCorrect: parsed.isCorrect === true,
+      feedback: parsed.feedback,
+    };
+  } catch (error) {
+    console.error('Error checking fill-in-blank:', error);
+    return {
+      isCorrect: false,
+      feedback: 'Unable to check answer. Please try again.',
+    };
+  }
+}
