@@ -75,6 +75,13 @@ export async function getUserMistakes(userId: string, reviewed: boolean = false)
       },
       reviewed,
     },
+    include: {
+      session: {
+        select: {
+          topic: true,
+        },
+      },
+    },
     orderBy: { createdAt: 'desc' },
     take: 50,
   });

@@ -30,6 +30,7 @@ export interface HistoryResponse {
     correction: string;
     explanation: string;
     createdAt: string;
+    topic?: string;
   }[];
 }
 
@@ -41,4 +42,24 @@ export interface SessionsResponse {
     messageCount: number;
     createdAt: string;
   }[];
+}
+
+export interface GoalSettings {
+  weeklySessionGoal: number;
+  reminderEnabled: boolean;
+  reminderTime: string;
+  reminderTimezone?: string | null;
+}
+
+export interface GoalProgress {
+  weeklyCompleted: number;
+  streakDays: number;
+  lastCompletedAt: string | null;
+  weekStart: string;
+  weekEnd: string;
+}
+
+export interface GoalsResponse {
+  goal: GoalSettings;
+  progress: GoalProgress;
 }

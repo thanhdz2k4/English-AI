@@ -4,62 +4,56 @@
 
 ```
 english-ai/
-├── 📁 src/
-│   ├── 📁 app/                     # Next.js App Router
-│   │   ├── 📁 api/                 # API Routes (Serverless Functions)
-│   │   │   ├── 📁 writing/
-│   │   │   │   ├── start/          # POST - Bắt đầu hội thoại mới
-│   │   │   │   ├── check/          # POST - Kiểm tra câu trả lời
-│   │   │   │   └── history/        # GET - Lấy lịch sử lỗi sai
-│   │   │   └── 📁 auth/            # Xác thực người dùng
-│   │   ├── 📁 writing/             # Trang Writing Feature
-│   │   │   └── page.tsx
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   │
-│   ├── 📁 components/              # React Components
-│   │   ├── 📁 writing/
-│   │   │   ├── TopicInput.tsx      # Component nhập chủ đề
-│   │   │   ├── ChatBubble.tsx      # Component tin nhắn
-│   │   │   ├── UserInput.tsx       # Component nhập câu trả lời
-│   │   │   ├── ErrorFeedback.tsx   # Component hiển thị lỗi
-│   │   │   └── ImproveSuggestion.tsx # Component gợi ý cải thiện
-│   │   └── 📁 ui/                  # UI Components chung
-│   │       ├── Button.tsx
-│   │       ├── Input.tsx
-│   │       └── Card.tsx
-│   │
-│   ├── 📁 lib/                     # Utilities & Helpers
-│   │   ├── prisma.ts               # Prisma Client instance
-│   │   ├── openai.ts               # OpenAI API config
-│   │   └── utils.ts                # Helper functions
-│   │
-│   ├── 📁 services/                # Business Logic Layer
-│   │   ├── writingService.ts       # Logic xử lý Writing feature
-│   │   └── aiService.ts            # Tương tác với AI
-│   │
-│   └── 📁 types/                   # TypeScript Types
-│       └── index.ts
-│
-├── 📁 prisma/
-│   ├── schema.prisma               # Database Schema
-│   └── 📁 migrations/              # Database Migrations
-│
-├── 📁 public/                      # Static Assets
-│
-├── 📁 docs/                        # Documentation
-│   ├── ba.txt                      # Business Analysis
-│   ├── 01-project-overview.md      # Tổng quan dự án
-│   ├── 02-project-structure.md     # Cấu trúc dự án
-│   └── 03-progress-tracking.md     # Theo dõi tiến độ
-│
-├── .env                            # Environment Variables
-├── .env.example                    # Env Template
-├── package.json
-├── tsconfig.json
-├── next.config.js
-└── README.md
+|-- app/
+|   |-- api/
+|   |   |-- auth/
+|   |   |   |-- login/
+|   |   |   |-- logout/
+|   |   |   |-- me/
+|   |   |   `-- register/
+|   |   |-- goals/
+|   |   `-- writing/
+|   |       |-- check/
+|   |       |-- history/
+|   |       |-- sessions/
+|   |       `-- start/
+|   |-- goals/
+|   |-- history/
+|   |-- login/
+|   |-- practice/
+|   |-- register/
+|   |-- writing/
+|   |-- layout.tsx
+|   `-- page.tsx
+|-- components/
+|-- lib/
+|   |-- auth.ts
+|   |-- openai.ts
+|   `-- prisma.ts
+|-- services/
+|   |-- aiService.ts
+|   |-- goalService.ts
+|   `-- writingService.ts
+|-- types/
+|-- prisma/
+|   `-- schema.prisma
+|-- docs/
+|   |-- 01-project-overview.md
+|   |-- 02-project-structure.md
+|   |-- 03-progress-tracking.md
+|   `-- 04-authentication.md
+|-- package.json
+`-- tsconfig.json
 ```
+
+## App Routes
+
+- `/writing` - Writing practice
+- `/history` - Mistakes history
+- `/practice` - Practice mistakes by topic
+- `/goals` - Personalized goals
+- `/login` - Sign in
+- `/register` - Create account
 
 ---
 
@@ -73,6 +67,7 @@ model User {
   passwordHash String?
   sessions  WritingSession[]
   authSessions AuthSession[]
+  goal      UserGoal?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -85,6 +80,18 @@ model AuthSession {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime @default(now())
+}
+
+model UserGoal {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weeklySessionGoal Int      @default(3)
+  reminderEnabled   Boolean  @default(false)
+  reminderTime      String   @default("19:00")
+  reminderTimezone  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model WritingSession {
@@ -155,6 +162,13 @@ enum SessionStatus {
 | `POST` | `/api/auth/logout` | Revoke session and clear cookie |
 | `GET` | `/api/auth/me` | Return current session user |
 
+### Goals
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/goals` | Get weekly goals and progress |
+| `POST` | `/api/goals` | Update weekly goals and reminders |
+
 ### Request/Response Examples
 
 #### POST /api/writing/start
@@ -195,6 +209,44 @@ enum SessionStatus {
 }
 ```
 
+#### GET /api/writing/history
+```json
+// Response
+{
+  "mistakes": [
+    {
+      "id": "mistake_123",
+      "original": "I go to school yesterday",
+      "correction": "I went to school yesterday.",
+      "explanation": "Use past tense for yesterday.",
+      "createdAt": "2025-01-01T12:00:00.000Z",
+      "topic": "daily life"
+    }
+  ]
+}
+```
+
+#### GET /api/goals
+```json
+// Response
+{
+  "goal": {
+    "weeklySessionGoal": 5,
+    "reminderEnabled": true,
+    "reminderTime": "19:00",
+    "reminderTimezone": "Asia/Ho_Chi_Minh"
+  },
+  "progress": {
+    "weeklyCompleted": 2,
+    "streakDays": 4,
+    "lastCompletedAt": "2025-01-02T08:00:00.000Z",
+    "weekStart": "2024-12-30T00:00:00.000Z",
+    "weekEnd": "2025-01-06T00:00:00.000Z"
+  }
+}
+```
+
+
 ---
 
 ## Environment Variables
@@ -224,6 +276,8 @@ AUTH_SESSION_TTL_HOURS="168"
 AUTH_PASSWORD_ITERATIONS="100000"
 ```
 
+
+
 ---
 
 ## Vercel Deployment Configuration
@@ -243,6 +297,7 @@ AUTH_PASSWORD_ITERATIONS="100000"
   }
 }
 ```
+
 
 ### Vercel Project Settings
 

@@ -18,8 +18,21 @@ model User {
   passwordHash String?
   sessions  WritingSession[]
   authSessions AuthSession[]
+  goal      UserGoal?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UserGoal {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weeklySessionGoal Int      @default(3)
+  reminderEnabled   Boolean  @default(false)
+  reminderTime      String   @default("19:00")
+  reminderTimezone  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model AuthSession {

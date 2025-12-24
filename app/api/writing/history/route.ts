@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         correction: m.correction,
         explanation: m.explanation,
         createdAt: m.createdAt.toISOString(),
+        topic: m.session?.topic ?? 'General',
       })),
     };
 

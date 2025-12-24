@@ -32,6 +32,20 @@ export default function Home() {
           >
             Start Writing Practice
           </Link>
+
+          <Link
+            href="/practice"
+            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-center transition-colors"
+          >
+            Practice Mistakes by Topic
+          </Link>
+
+          <Link
+            href="/goals"
+            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-center transition-colors"
+          >
+            Personalized Goals
+          </Link>
           
           <Link 
             href="/history"

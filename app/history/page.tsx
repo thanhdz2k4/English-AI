@@ -91,6 +91,14 @@ export default function HistoryPage() {
           >
             ← Back to Home
           </Link>
+          <div className="mb-4">
+            <Link
+              href="/practice"
+              className="text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              Practice by Topic
+            </Link>
+          </div>
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Mistakes History
           </h1>
