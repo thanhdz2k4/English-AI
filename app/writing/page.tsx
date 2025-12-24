@@ -12,6 +12,23 @@ interface Message {
   suggestion?: string;
 }
 
+const TOPIC_OPTIONS = [
+  'Daily life',
+  'Family',
+  'Work',
+  'School',
+  'Hobbies',
+  'Travel',
+  'Food',
+  'Health',
+  'Technology',
+  'Movies',
+  'Sports',
+  'Environment',
+  'Shopping',
+  'Future plans',
+];
+
 export default function WritingPage() {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -25,6 +42,7 @@ export default function WritingPage() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenIndexRef = useRef<number | null>(null);
 
@@ -51,18 +69,20 @@ export default function WritingPage() {
     loadUser();
   }, [router]);
 
-  const startSession = async () => {
-    if (!topic.trim()) {
-      alert('Please enter a topic');
+  const startSession = async (selectedTopic?: string) => {
+    const resolvedTopic = (selectedTopic ?? topic).trim();
+    if (!resolvedTopic) {
+      alert('Please choose a topic');
       return;
     }
 
+    setTopic(resolvedTopic);
     setIsLoading(true);
     try {
       const response = await fetch('/api/writing/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic: resolvedTopic }),
       });
 
       if (!response.ok) {
@@ -162,6 +182,7 @@ export default function WritingPage() {
     if (!trimmed) return;
 
     setIsSpeaking(true);
+    setTtsError(null);
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
@@ -174,12 +195,19 @@ export default function WritingPage() {
           router.push('/login');
           return;
         }
-        throw new Error('Failed to generate speech');
+        const errorData = await response.json().catch(() => null);
+        setTtsError(
+          errorData?.error
+            ? `TTS error: ${errorData.error}`
+            : `TTS request failed (${response.status})`
+        );
+        return;
       }
 
       const data = await response.json();
       if (!data?.audio || !data?.mimeType) {
-        throw new Error('Invalid speech response');
+        setTtsError('TTS returned no audio.');
+        return;
       }
 
       stopAudio();
@@ -187,9 +215,19 @@ export default function WritingPage() {
         `data:${data.mimeType};base64,${data.audio}`
       );
       audioRef.current = audio;
-      await audio.play();
+      try {
+        await audio.play();
+      } catch (playError) {
+        const message =
+          playError instanceof DOMException
+            && playError.name === 'NotAllowedError'
+            ? 'Autoplay blocked. Tap Listen to play.'
+            : 'Audio playback failed.';
+        setTtsError(message);
+      }
     } catch (error) {
       console.error('Error playing speech:', error);
+      setTtsError('Audio playback failed.');
     } finally {
       setIsSpeaking(false);
     }
@@ -218,6 +256,7 @@ export default function WritingPage() {
     setUserInput('');
     setIsSessionStarted(false);
     setIsCompleted(false);
+    setTtsError(null);
     stopAudio();
     lastSpokenIndexRef.current = null;
   };
@@ -226,6 +265,7 @@ export default function WritingPage() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
+      setTtsError(null);
       stopAudio();
       router.push('/login');
     }
@@ -271,21 +311,24 @@ export default function WritingPage() {
             <label className="block text-lg font-semibold mb-2">
               Choose a topic to start:
             </label>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., daily life, hobbies, travel, food..."
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white mb-4"
-              onKeyPress={(e) => e.key === 'Enter' && startSession()}
-            />
-            <button
-              onClick={startSession}
-              disabled={isLoading}
-              className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
-            >
-              {isLoading ? 'Starting...' : 'Start Conversation'}
-            </button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {TOPIC_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => startSession(option)}
+                  disabled={isLoading}
+                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
+                  type="button"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            {isLoading && (
+              <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Starting...
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -308,6 +351,11 @@ export default function WritingPage() {
                   {isSpeaking && (
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       Speaking...
+                    </span>
+                  )}
+                  {ttsError && (
+                    <span className="text-xs text-red-600 dark:text-red-300">
+                      {ttsError}
                     </span>
                   )}
                   <button

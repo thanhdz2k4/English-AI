@@ -26,6 +26,39 @@ function sanitizeEnglish(
   return trimmed;
 }
 
+function normalizeAiSentence(text: string, fallback: string) {
+  let normalized = text.trim();
+  if (!normalized) return fallback;
+
+  const lines = normalized
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length > 0) {
+    normalized = lines[0];
+  }
+
+  normalized = normalized
+    .replace(/^[\"'`]+|[\"'`]+$/g, '')
+    .replace(
+      /^(?:here(?:'s| is)\s+(?:a|the)\s+(?:question|prompt)\s*[:\-]?\s*)/i,
+      ''
+    )
+    .replace(/^(?:question|prompt|answer)\s*:\s*/i, '')
+    .replace(/^(?:sure|of course|okay)[,.\s]+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return fallback;
+
+  const sentenceMatch = normalized.match(/^[^.!?]*[.!?]/);
+  if (sentenceMatch) {
+    normalized = sentenceMatch[0].trim();
+  }
+
+  return normalized || fallback;
+}
+
 function sanitizeGrammarResult(
   result: { isCorrect: boolean; error?: string; correction?: string },
   sentence: string
@@ -58,31 +91,33 @@ export async function generateInitialQuestion(topic: string): Promise<string> {
       messages: [
         {
           role: "system",
-          content: `You are an English teacher helping students practice writing. Respond only in English using ASCII characters. Generate a single, simple, friendly opening question or statement related to the topic "${topic}" to start a conversation. Keep it natural and conversational.`
+          content: `You are an English teacher helping students practice writing. Respond only in English using ASCII characters. Generate one simple, friendly opening sentence related to the topic "${topic}" to start a conversation. Keep it natural and conversational. Return only the sentence without any prefix or explanation.`
         },
         {
           role: "user",
-          content: `Create an opening question about: ${topic}. Return only the question.`
+          content: `Create an opening sentence about: ${topic}. Return only the sentence.`
         }
       ],
       temperature: 0.8,
     });
 
     const content = completion.choices[0]?.message?.content;
-    const fallback = "Hi! Let's talk about this topic.";
-    const sanitized = sanitizeEnglish(content, fallback);
-    if (sanitized) return sanitized;
-    if (DEBUG_AI_ERRORS) {
-      const preview = JSON.stringify(completion.choices[0]?.message ?? completion);
-      return `AI_EMPTY_RESPONSE: ${preview.slice(0, 300)}`;
+    const fallback = "Let's talk about this topic.";
+    const sanitized = sanitizeEnglish(content, '');
+    if (!sanitized) {
+      if (DEBUG_AI_ERRORS) {
+        const preview = JSON.stringify(completion.choices[0]?.message ?? completion);
+        return `AI_EMPTY_RESPONSE: ${preview.slice(0, 300)}`;
+      }
+      return fallback;
     }
-    return fallback;
+    return normalizeAiSentence(sanitized, fallback);
   } catch (error) {
     console.error('Error generating initial question:', error);
     if (DEBUG_AI_ERRORS) {
       return `AI_ERROR: ${formatAiError(error)}`;
     }
-    return "Hi! Let's talk about this topic.";
+    return "Let's talk about this topic.";
   }
 }
 
@@ -183,11 +218,11 @@ export async function generateNextQuestion(topic: string, previousMessages: stri
       messages: [
         {
           role: "system",
-          content: `You are an English teacher having a conversation about "${topic}". Respond only in English using ASCII characters. Based on the previous messages, ask a single natural follow-up question to continue the conversation. Keep it friendly and encouraging. Return only the question.`
+          content: `You are an English teacher having a conversation about "${topic}". Respond only in English using ASCII characters. Based on the previous messages, ask one natural follow-up sentence to continue the conversation. Keep it friendly and encouraging. Return only the sentence without any prefix or explanation.`
         },
         {
           role: "user",
-          content: `Previous conversation:\n${previousMessages.join('\n')}\n\nGenerate the next question:`
+          content: `Previous conversation:\n${previousMessages.join('\n')}\n\nGenerate the next sentence:`
         }
       ],
       temperature: 0.8,
@@ -195,13 +230,15 @@ export async function generateNextQuestion(topic: string, previousMessages: stri
 
     const content = completion.choices[0]?.message?.content;
     const fallback = "What else would you like to share?";
-    const sanitized = sanitizeEnglish(content, fallback);
-    if (sanitized) return sanitized;
-    if (DEBUG_AI_ERRORS) {
-      const preview = JSON.stringify(completion.choices[0]?.message ?? completion);
-      return `AI_EMPTY_RESPONSE: ${preview.slice(0, 300)}`;
+    const sanitized = sanitizeEnglish(content, '');
+    if (!sanitized) {
+      if (DEBUG_AI_ERRORS) {
+        const preview = JSON.stringify(completion.choices[0]?.message ?? completion);
+        return `AI_EMPTY_RESPONSE: ${preview.slice(0, 300)}`;
+      }
+      return fallback;
     }
-    return fallback;
+    return normalizeAiSentence(sanitized, fallback);
   } catch (error) {
     console.error('Error generating next question:', error);
     if (DEBUG_AI_ERRORS) {

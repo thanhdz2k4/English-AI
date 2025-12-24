@@ -289,10 +289,12 @@ VC_API_KEY="your_vc_api_key_here"
 VC_BASE_URL="https://vanchin.streamlake.ai/api/gateway/v1/endpoints"
 VC_MODEL="kat-coder-exp-72b-1010"
 
-# Gemini (TTS)
+# Gemini (TTS) (use GEMINI_API_KEY or GOOGLE_API_KEY)
 GEMINI_API_KEY="your_gemini_api_key_here"
+GOOGLE_API_KEY="your_google_api_key_here"
 GEMINI_MODEL="gemini-2.0-flash-exp"
-GEMINI_TTS_MODEL="gemini-2.0-flash-exp"
+GEMINI_TTS_MODEL="models/gemini-2.5-pro-preview-tts"
+GEMINI_API_VERSION="v1alpha"
 GEMINI_TTS_LANGUAGE="en-US"
 GEMINI_TTS_VOICE=""
 
@@ -349,8 +351,10 @@ AUTH_PASSWORD_ITERATIONS="100000"
 | `VC_BASE_URL` | Streamlake/Vanchin base URL | optional |
 | `VC_MODEL` | Streamlake/Vanchin model ID | optional |
 | `GEMINI_API_KEY` | Gemini API key for TTS | yes |
+| `GOOGLE_API_KEY` | Google API key for Gemini (alternative) | optional |
 | `GEMINI_MODEL` | Gemini model name | optional |
 | `GEMINI_TTS_MODEL` | Gemini TTS model name | optional |
+| `GEMINI_API_VERSION` | Gemini API version (recommended: `v1alpha` for TTS) | optional |
 | `GEMINI_TTS_LANGUAGE` | TTS language code | optional |
 | `GEMINI_TTS_VOICE` | TTS voice name | optional |
 | `AUTH_COOKIE_NAME` | Cookie name for auth session | optional |
