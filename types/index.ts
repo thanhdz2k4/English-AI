@@ -74,3 +74,27 @@ export interface TtsResponse {
   audio: string;
   mimeType: string;
 }
+
+export interface Flashcard {
+  id: string;
+  sourceText: string;
+  translation?: string | null;
+  sourceLang: string;
+  targetLang: string;
+  createdAt: string;
+}
+
+export interface FlashcardsResponse {
+  flashcards: Flashcard[];
+}
+
+export interface CreateFlashcardRequest {
+  text: string;
+  translation?: string;
+  sourceLang?: string;
+  targetLang?: string;
+}
+
+export interface CreateFlashcardResponse {
+  flashcard: Flashcard;
+}

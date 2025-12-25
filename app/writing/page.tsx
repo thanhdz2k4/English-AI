@@ -29,6 +29,17 @@ const TOPIC_OPTIONS = [
   'Future plans',
 ];
 
+const buildTranslateUrl = (
+  text: string,
+  sourceLang = 'en',
+  targetLang = 'vi'
+) =>
+  `https://translate.google.com/?sl=${encodeURIComponent(
+    sourceLang
+  )}&tl=${encodeURIComponent(targetLang)}&text=${encodeURIComponent(
+    text
+  )}&op=translate`;
+
 export default function WritingPage() {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -43,6 +54,13 @@ export default function WritingPage() {
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
+  const [flashcardDraftIndex, setFlashcardDraftIndex] = useState<number | null>(null);
+  const [flashcardText, setFlashcardText] = useState('');
+  const [flashcardTranslation, setFlashcardTranslation] = useState('');
+  const [flashcardStatus, setFlashcardStatus] = useState<
+    Record<number, 'idle' | 'saving' | 'saved' | 'error'>
+  >({});
+  const [flashcardError, setFlashcardError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenIndexRef = useRef<number | null>(null);
 
@@ -233,6 +251,81 @@ export default function WritingPage() {
     }
   }, [router, stopAudio]);
 
+  const openFlashcardDraft = (index: number, message: string) => {
+    const selection = window.getSelection()?.toString().trim();
+    const draftText =
+      selection && message.includes(selection) ? selection : message;
+    setFlashcardDraftIndex(index);
+    setFlashcardText(draftText);
+    setFlashcardTranslation('');
+    setFlashcardError(null);
+  };
+
+  const cancelFlashcardDraft = () => {
+    setFlashcardDraftIndex(null);
+    setFlashcardText('');
+    setFlashcardTranslation('');
+    setFlashcardError(null);
+  };
+
+  const saveFlashcard = async () => {
+    if (flashcardDraftIndex === null) return;
+
+    const text = flashcardText.trim();
+    if (!text) {
+      setFlashcardError('Please enter a phrase to save.');
+      return;
+    }
+
+    const translation = flashcardTranslation.trim();
+    setFlashcardError(null);
+    setFlashcardStatus((prev) => ({
+      ...prev,
+      [flashcardDraftIndex]: 'saving',
+    }));
+
+    try {
+      const response = await fetch('/api/flashcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          translation: translation || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        const data = await response.json().catch(() => null);
+        const message = data?.error
+          ? String(data.error)
+          : 'Failed to save flashcard.';
+        setFlashcardError(message);
+        setFlashcardStatus((prev) => ({
+          ...prev,
+          [flashcardDraftIndex]: 'error',
+        }));
+        return;
+      }
+
+      setFlashcardStatus((prev) => ({
+        ...prev,
+        [flashcardDraftIndex]: 'saved',
+      }));
+      cancelFlashcardDraft();
+    } catch (error) {
+      console.error('Error saving flashcard:', error);
+      setFlashcardError('Failed to save flashcard.');
+      setFlashcardStatus((prev) => ({
+        ...prev,
+        [flashcardDraftIndex]: 'error',
+      }));
+    }
+  };
+
   useEffect(() => {
     if (!autoSpeak) return;
     if (messages.length === 0) {
@@ -257,6 +350,11 @@ export default function WritingPage() {
     setIsSessionStarted(false);
     setIsCompleted(false);
     setTtsError(null);
+    setFlashcardDraftIndex(null);
+    setFlashcardText('');
+    setFlashcardTranslation('');
+    setFlashcardStatus({});
+    setFlashcardError(null);
     stopAudio();
     lastSpokenIndexRef.current = null;
   };
@@ -397,7 +495,93 @@ export default function WritingPage() {
                         )}
                       </div>
                       <div>{msg.content}</div>
-                      
+
+                      <div className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white/70 px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-200">
+                        <a
+                          href={buildTranslateUrl(msg.content)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300"
+                        >
+                          Translate
+                        </a>
+                        <button
+                          onClick={() => openFlashcardDraft(idx, msg.content)}
+                          disabled={flashcardStatus[idx] === 'saving'}
+                          className="font-semibold text-amber-700 hover:text-amber-800 disabled:text-gray-400 dark:text-amber-300 dark:hover:text-amber-200"
+                          type="button"
+                        >
+                          Add to list
+                        </button>
+                        {flashcardStatus[idx] === 'saving' && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Saving...
+                          </span>
+                        )}
+                        {flashcardStatus[idx] === 'saved' && (
+                          <span className="text-green-700 dark:text-green-300">
+                            Saved
+                          </span>
+                        )}
+                        {flashcardStatus[idx] === 'error' && (
+                          <span className="text-red-600 dark:text-red-300">
+                            Failed
+                          </span>
+                        )}
+                      </div>
+
+                      {flashcardDraftIndex === idx && (
+                        <div className="mt-3 rounded-md border border-blue-200 bg-white/80 p-3 text-xs dark:border-blue-800/60 dark:bg-gray-800/70">
+                          <div className="mb-2">
+                            <label className="block text-xs font-semibold mb-1">
+                              Phrase
+                            </label>
+                            <input
+                              type="text"
+                              value={flashcardText}
+                              onChange={(e) => setFlashcardText(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                              placeholder="Enter a word or phrase"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <label className="block text-xs font-semibold mb-1">
+                              Meaning (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={flashcardTranslation}
+                              onChange={(e) =>
+                                setFlashcardTranslation(e.target.value)
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                              placeholder="Add your translation"
+                            />
+                          </div>
+                          {flashcardError && (
+                            <div className="mb-2 text-xs text-red-600 dark:text-red-300">
+                              {flashcardError}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={saveFlashcard}
+                              className="px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                              type="button"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelFlashcardDraft}
+                              className="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 text-xs font-semibold dark:bg-gray-700 dark:hover:bg-gray-600"
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {msg.isCorrect === false && (
                         <div className="mt-3 pt-3 border-t border-red-300 dark:border-red-700">
                           <div className="text-sm text-red-700 dark:text-red-300 mb-2">

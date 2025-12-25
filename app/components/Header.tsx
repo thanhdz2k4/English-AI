@@ -53,6 +53,16 @@ export default function Header() {
           >
             History
           </Link>
+          <Link
+            href="/flashcards"
+            className={`px-3 py-2 rounded-md transition-colors ${
+              pathname === '/flashcards'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200'
+                : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Flashcards
+          </Link>
         </nav>
       </div>
     </header>

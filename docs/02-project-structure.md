@@ -56,6 +56,7 @@ english-ai/
 - `/writing` - Writing practice
 - `/history` - Mistakes history
 - `/practice` - Practice mistakes by topic
+- `/flashcards` - Saved flashcards
 - `/goals` - Personalized goals
 - `/login` - Sign in
 - `/register` - Create account
@@ -134,6 +135,20 @@ model Mistake {
   createdAt   DateTime @default(now())
 }
 
+model Flashcard {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceText  String
+  translation String?
+  sourceLang  String   @default("en")
+  targetLang  String   @default("vi")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, sourceText])
+}
+
 enum Role {
   AI
   USER
@@ -157,6 +172,13 @@ enum SessionStatus {
 | `POST` | `/api/writing/check` | Check a user response and return feedback |
 | `GET` | `/api/writing/history` | List mistakes for practice |
 | `GET` | `/api/writing/sessions` | List completed sessions |
+
+### Flashcards
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/flashcards` | List saved flashcards |
+| `POST` | `/api/flashcards` | Save or update a flashcard |
 
 ### Auth
 
