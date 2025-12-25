@@ -27,8 +27,24 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if exist "prisma\\migrations\\" (
+  echo Running database migrations...
+  call npx prisma migrate deploy
+  if errorlevel 1 (
+    echo ERROR: migrations failed.
+    exit /b 1
+  )
+) else (
+  echo No migrations found. Pushing schema to database...
+  call npx prisma db push
+  if errorlevel 1 (
+    echo ERROR: prisma db push failed.
+    exit /b 1
+  )
+)
+
 echo Deploying to Vercel...
-call npx vercel --prod
+call npx vercel --prod --force
 if errorlevel 1 (
   echo ERROR: deploy failed.
   exit /b 1
